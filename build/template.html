@@ -136,6 +136,10 @@
   .card{background:var(--cream);color:var(--ink);border-radius:5vmin;padding:5vmin 6vmin;text-align:center;width:min(92vw,120vmin);
     box-shadow:0 0 0 1.2vmin var(--gold),0 3vmin 9vmin rgba(0,0,0,.6);animation:pop .6s cubic-bezier(.2,1.5,.4,1)}
   @keyframes pop{from{transform:scale(.3) rotate(-8deg);opacity:0}}
+  .card.a1{animation:drop .75s cubic-bezier(.25,1.35,.5,1)} .card.a2{animation:flip .7s cubic-bezier(.2,1.2,.4,1)} .card.a3{animation:spin .7s cubic-bezier(.2,1.2,.4,1)}
+  @keyframes drop{from{transform:translateY(-110vh) rotate(6deg)}}
+  @keyframes flip{from{transform:perspective(1200px) rotateX(-95deg);opacity:0}}
+  @keyframes spin{from{transform:scale(.05) rotate(-540deg);opacity:0}}
   .card .nr{display:inline-flex;align-items:center;justify-content:center;width:15vmin;height:15vmin;border-radius:50%;
     background:var(--red);color:#fff;font-size:8vmin;font-weight:800;box-shadow:0 .8vmin 0 var(--red2)}
   .card .lead{margin:3vmin 0 0;font-size:clamp(18px,4vmin,44px)}
@@ -374,11 +378,12 @@ function reveal(n, celebrate){
   $('dlgInput').value = '';
   $('overlay').hidden = false;
   $('dlgOk').focus();
-  if(celebrate && fixed){ sfxFanfare(); confetti(); }
+  document.querySelector('#overlay .card').className = 'card a' + (n % 4);
+  if(celebrate && fixed){ sfxFanfare(n); effect(n); }
 }
 function showName(nm){
   $('dlgLead').textContent = nm ? 'Dieses Türchen ist für' : 'Dieses Türchen ist noch frei';
-  $('dlgDeco').textContent = nm ? '🎉🐿️🎁' : '🐿️';
+  $('dlgDeco').textContent = nm ? effectOf(current).deco : '🐿️';
   setName(nm || '?');
 }
 function setName(text){
@@ -503,11 +508,27 @@ function noise(t, dur, vol, hp){
   s.buffer = buf; f.type = 'highpass'; f.frequency.value = hp; g.gain.value = vol;
   s.connect(f); f.connect(g); g.connect(master); s.start(t);
 }
-function sfxFanfare(){
-  if(!audio()) return; var t = AC.currentTime + 0.02;
-  ['C5','E5','G5','C6','E6','G6'].forEach(function(n, i){ bell(freq(n), t + i*0.09, 0.5, 0.22); });
-  ['C5','E5','G5','C6'].forEach(function(n){ bell(freq(n), t + 0.62, 1.4, 0.16); });
-  for(var i=0;i<8;i++) noise(t + i*0.11, 0.09, 0.10, 6000); // Schellen
+function chord(notes, t, dur, vol){ notes.forEach(function(n){ bell(freq(n), t, dur, vol); }); }
+function sfxFanfare(n){
+  if(!audio()) return; var t = AC.currentTime + 0.02, i;
+  switch((n || 0) % 4){
+    case 0: // Lauf nach oben mit Schellen
+      ['C5','E5','G5','C6','E6','G6'].forEach(function(x, k){ bell(freq(x), t + k*0.09, 0.5, 0.22); });
+      chord(['C5','E5','G5','C6'], t + 0.62, 1.4, 0.16);
+      for(i=0;i<8;i++) noise(t + i*0.11, 0.09, 0.10, 6000);
+      break;
+    case 1: // Glockenspiel von oben herab
+      ['G6','E6','C6','G5','E5','C5'].forEach(function(x, k){ bell(freq(x), t + k*0.08, 0.5, 0.2); });
+      chord(['F4','A4','C5','F5'], t + 0.55, 0.5, 0.14); chord(['C5','E5','G5','C6'], t + 0.95, 1.5, 0.17);
+      break;
+    case 2: // Tusch
+      chord(['G4','B4','D5'], t, 0.25, 0.18); chord(['G4','B4','D5'], t + 0.2, 0.25, 0.18);
+      chord(['C5','E5','G5','C6'], t + 0.42, 1.6, 0.2); noise(t + 0.42, 0.5, 0.08, 5000);
+      break;
+    default: // Schlittenglöckchen
+      ['E5','E5','E5','G5','C5','D5','E5'].forEach(function(x, k){ bell(freq(x) * 2, t + k*0.13, 0.4, 0.17); });
+      for(i=0;i<10;i++) noise(t + i*0.1, 0.07, 0.11, 7000);
+  }
 }
 function sfxCreak(){
   if(!audio()) return; var t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
@@ -598,28 +619,75 @@ function nextSong(){ loadSong(songIdx + 1); if(AC) nextT = AC.currentTime + 0.2;
   if(count) requestAnimationFrame(frame);
 })();
 
-/* ---------- Konfetti ---------- */
-var fxParts = [], fxOn = false;
-function confetti(){
+/* ---------- Effekte beim Öffnen: jedes Türchen bekommt einen anderen ---------- */
+var fxParts = [], fxOn = false, fxLast = 0;
+var COLS = ['#f7c948','#c8372d','#1f8a5b','#ffffff','#6fb7ff','#ff8fb0'];
+function R(a, b){ return a + Math.random() * (b - a); }
+function pick(a){ return a[Math.floor(Math.random() * a.length)]; }
+function add(p){
+  var d = {vx:0, vy:0, g:900, drag:0.985, s:10, rot:0, vr:0, c:'#fff', life:3, kind:'rect', delay:0, ch:''};
+  for(var k in p) d[k] = p[k];
+  fxParts.push(d);
+}
+function fxConfetti(W, H){
+  for(var i=0;i<170;i++){ var a = R(0,6.283), sp = R(250,1000);
+    add({x:W/2, y:H*0.42, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 350, s:R(6,16), rot:R(0,6), vr:R(-6,6), c:COLS[i % COLS.length],
+      life:R(2.4,3.6), kind:i % 4 === 0 ? 'star' : 'rect'}); }
+}
+function fxFirework(W, H){
+  for(var b=0;b<7;b++){ var cx = R(0.12,0.88)*W, cy = R(0.12,0.55)*H, col = COLS[b % COLS.length];
+    for(var i=0;i<46;i++){ var a = R(0,6.283), sp = R(120,520);
+      add({x:cx, y:cy, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, g:260, drag:0.97, s:R(3,7), c:i % 5 ? col : '#fff', life:R(1.1,1.9), kind:'dot', delay:b*0.3}); } }
+}
+function fxStars(W, H){
+  for(var i=0;i<130;i++) add({x:R(0,W), y:R(-H*0.7,-20), vx:R(-40,40), vy:R(250,620), g:120, drag:1, s:R(8,22), rot:R(0,6), vr:R(-4,4),
+    c:pick(['#f7c948','#ffe9a3','#ffffff']), life:4.5, kind:'star'});
+}
+function fxEmojiBurst(W, H, chars){
+  for(var i=0;i<95;i++){ var a = R(0,6.283), sp = R(200,760);
+    add({x:W/2, y:H*0.45, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 150, g:160, drag:0.975, s:R(18,46), rot:R(0,6), vr:R(-3,3), life:R(2,3.3), kind:'emoji', ch:pick(chars)}); }
+}
+function fxEmojiRain(W, H, chars){
+  for(var i=0;i<80;i++) add({x:R(0,W), y:R(-120,-30), vx:R(-50,50), vy:R(120,420), g:520, drag:1, s:R(26,54), rot:R(-0.6,0.6), vr:R(-3,3),
+    life:5, kind:'emoji', ch:pick(chars), delay:R(0,1.3)});
+}
+function fxFountain(W, H, chars){
+  for(var i=0;i<85;i++) add({x:W/2 + R(-40,40), y:H + 30, vx:R(-460,460), vy:R(-1500,-850) * Math.min(1, H/900 + 0.25), g:1300, drag:1, s:R(26,52),
+    rot:R(0,6), vr:R(-5,5), life:4.2, kind:'emoji', ch:pick(chars), delay:R(0,1.1)});
+}
+function fxBalloons(W, H){
+  for(var i=0;i<46;i++) add({x:R(0,W), y:H + R(30,320), vx:R(-30,30), vy:R(-430,-230), g:-25, drag:1, s:R(36,72), rot:R(-0.2,0.2), life:5.5, kind:'emoji', ch:'🎈'});
+}
+var EFFECTS = [
+  {run:fxConfetti, deco:'🎉🐿️🎁'},
+  {run:fxFirework, deco:'🎆✨🎆'},
+  {run:fxStars, deco:'⭐🌟⭐'},
+  {run:function(W,H){ fxEmojiBurst(W,H,['❄️','❄️','⛄','✨']); }, deco:'❄️⛄❄️'},
+  {run:function(W,H){ fxEmojiRain(W,H,['🌰','🌰','🐿️','🍂']); }, deco:'🌰🐿️🌰'},
+  {run:function(W,H){ fxFountain(W,H,['🎁','⭐','🎄','🔔']); }, deco:'🎁🎄🔔'},
+  {run:fxBalloons, deco:'🎈🥳🎈'},
+  {run:function(W,H){ fxEmojiRain(W,H,['🍪','🍬','🍭','🧁']); }, deco:'🍪🍭🍬'}
+];
+function effectOf(n){ return EFFECTS[(n - 1) % EFFECTS.length]; }
+function effect(n){
   if(reduced) return;
   var c = $('fx'); c.width = innerWidth; c.height = innerHeight;
-  var cols = ['#f7c948','#c8372d','#1f8a5b','#ffffff','#6fb7ff','#ff8fb0'];
-  for(var i=0;i<170;i++){
-    var a = Math.random()*6.283, sp = 250 + Math.random()*750;
-    fxParts.push({x:c.width/2, y:c.height*0.42, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 350, s:6 + Math.random()*10,
-      rot:Math.random()*6, vr:(Math.random()-.5)*12, c:cols[i % cols.length], life:2.4 + Math.random()*1.2, star:i % 4 === 0});
-  }
+  effectOf(n).run(c.width, c.height);
   if(!fxOn){ fxOn = true; fxLast = 0; requestAnimationFrame(fxFrame); }
 }
-var fxLast = 0;
 function fxFrame(ts){
   var c = $('fx'), x = c.getContext('2d'), dt = fxLast ? Math.min(50, ts - fxLast)/1000 : 0.016; fxLast = ts;
   x.clearRect(0,0,c.width,c.height);
-  fxParts = fxParts.filter(function(p){ return p.life > 0 && p.y < c.height + 40; });
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  fxParts = fxParts.filter(function(p){ return p.life > 0 && p.y < c.height + 400 && p.y > -c.height - 400; });
   fxParts.forEach(function(p){
-    p.vy += 900*dt; p.vx *= 0.985; p.x += p.vx*dt; p.y += p.vy*dt; p.rot += p.vr*dt; p.life -= dt;
-    x.save(); x.translate(p.x,p.y); x.rotate(p.rot); x.globalAlpha = Math.min(1, p.life); x.fillStyle = p.c;
-    if(p.star){
+    if(p.delay > 0){ p.delay -= dt; return; }
+    p.vy += p.g*dt; p.vx *= p.drag; if(p.drag < 1) p.vy *= p.drag;
+    p.x += p.vx*dt; p.y += p.vy*dt; p.rot += p.vr*dt; p.life -= dt;
+    x.save(); x.translate(p.x,p.y); x.rotate(p.rot); x.globalAlpha = Math.max(0, Math.min(1, p.life)); x.fillStyle = p.c;
+    if(p.kind === 'emoji'){ x.font = p.s + 'px serif'; x.fillText(p.ch, 0, 0); }
+    else if(p.kind === 'dot'){ x.beginPath(); x.arc(0, 0, p.s, 0, 6.283); x.fill(); }
+    else if(p.kind === 'star'){
       x.beginPath();
       for(var k=0;k<10;k++){ var r = k % 2 ? p.s*0.45 : p.s, an = k*Math.PI/5; x.lineTo(Math.cos(an)*r, Math.sin(an)*r); }
       x.closePath(); x.fill();
