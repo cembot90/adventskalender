@@ -211,7 +211,7 @@
     <p class="lead" id="dlgLead"></p>
     <div class="name" id="dlgName"></div>
     <div class="deco" id="dlgDeco" aria-hidden="true">🎉🐿️🎁</div>
-    <input id="dlgInput" type="text" maxlength="30" placeholder="Name eintragen (optional)" autocomplete="off" hidden>
+    <input id="dlgInput" type="text" maxlength="30" placeholder="Name eintragen" autocomplete="off" hidden>
     <div class="actions">
       <button class="btn primary" id="dlgOk">Weiter</button>
       <button class="btn ghost" id="dlgClose">Türchen wieder schließen</button>
@@ -221,7 +221,7 @@
 <div class="admin" id="admin" role="dialog" aria-modal="true" aria-labelledby="adminH" hidden>
   <form class="admincard" id="adminForm">
     <h2 id="adminH">Verwaltung</h2>
-    <p>Hier lassen sich Überschrift und Namen ändern. Die Änderungen werden nur auf diesem Gerät gespeichert. Ein leeres Feld bedeutet: Überraschung für die ganze Klasse.</p>
+    <p>Hier lassen sich Überschrift und Namen ändern. Die Änderungen werden nur auf diesem Gerät gespeichert. Ein leeres Feld bedeutet: Das Türchen ist noch frei, der Name kann später eingetragen werden.</p>
     <label class="f" for="admTitle">Überschrift</label><input type="text" id="admTitle" maxlength="60">
     <label class="f" for="admSub">Zweite Zeile</label><input type="text" id="admSub" maxlength="60">
     <label class="f">Türchen und Namen</label>
@@ -333,7 +333,7 @@ function render(){
     var inside = document.createElement('span'); inside.className = 'inside';
     var sm = document.createElement('small'); sm.textContent = n; inside.appendChild(sm);
     var bb = document.createElement('b');
-    if(nm) bb.textContent = nm; else { bb.className = 'gift'; bb.textContent = '🎁'; }
+    if(nm) bb.textContent = nm; else { bb.className = 'gift'; bb.textContent = '?'; }
     inside.appendChild(bb);
     var flap = document.createElement('span'); flap.className = 'flap';
     var num = document.createElement('span'); num.textContent = n; flap.appendChild(num);
@@ -369,13 +369,17 @@ function reveal(n, celebrate){
   current = n;
   var fixed = nameOf(n);
   $('dlgNr').textContent = n;
-  $('dlgLead').textContent = fixed ? 'Dieses Türchen ist für' : 'Eine Überraschung für';
-  setName(fixed || 'die ganze Klasse');
+  showName(fixed);
   $('dlgInput').hidden = !!fixed;
   $('dlgInput').value = '';
   $('overlay').hidden = false;
   $('dlgOk').focus();
-  if(celebrate){ sfxFanfare(); confetti(); }
+  if(celebrate && fixed){ sfxFanfare(); confetti(); }
+}
+function showName(nm){
+  $('dlgLead').textContent = nm ? 'Dieses Türchen ist für' : 'Dieses Türchen ist noch frei';
+  $('dlgDeco').textContent = nm ? '🎉🐿️🎁' : '🐿️';
+  setName(nm || '?');
 }
 function setName(text){
   var el = $('dlgName'); el.innerHTML = '';
@@ -390,7 +394,7 @@ $('dlgInput').addEventListener('input', function(){
   if(!current) return;
   var v = this.value.trim();
   state.custom[current] = v;
-  save(); setName(v || 'die ganze Klasse');
+  save(); showName(v);
 });
 $('dlgOk').addEventListener('click', closeDialog);
 $('dlgClose').addEventListener('click', function(){
