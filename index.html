@@ -151,6 +151,10 @@
     border:2px solid #d8c9a8;border-radius:2vmin;background:#fff;color:var(--ink)}
   .card .actions{display:flex;gap:2vmin;justify-content:center;flex-wrap:wrap;margin-top:4vmin}
   .card .btn{font-size:clamp(16px,2.8vmin,30px);padding:1.6vmin 4vmin}
+  .card .btn.quiz{background:var(--green);color:#fff}
+  .qtype{display:inline-block;margin-top:3vmin;padding:.8vmin 2.6vmin;border-radius:999px;background:var(--blue);color:#fff;font-weight:800;font-size:clamp(15px,2.8vmin,30px)}
+  .qtext{margin:2.5vmin 0 0;font-size:clamp(22px,5.4vmin,64px);font-weight:700;line-height:1.2;text-wrap:balance}
+  .qans{margin:2.5vmin 0 0;font-size:clamp(26px,7vmin,84px);font-weight:800;color:var(--green2);line-height:1.15;animation:pop .5s cubic-bezier(.2,1.5,.4,1);text-wrap:balance}
   .card .btn.ghost{background:transparent;color:#7a6a55;font-weight:500}
 
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.squirrel{display:none}}
@@ -212,12 +216,21 @@
 <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="dlgName" hidden>
   <div class="card">
     <div class="nr" id="dlgNr"></div>
+    <div id="viewName">
     <p class="lead" id="dlgLead"></p>
     <div class="name" id="dlgName"></div>
     <div class="deco" id="dlgDeco" aria-hidden="true">🎉🐿️🎁</div>
     <input id="dlgInput" type="text" maxlength="30" placeholder="Name eintragen" autocomplete="off" hidden>
+    </div>
+    <div id="viewQuiz" hidden>
+      <div class="qtype" id="quizType"></div>
+      <p class="qtext" id="quizQ"></p>
+      <p class="qans" id="quizA" hidden></p>
+    </div>
     <div class="actions">
       <button class="btn primary" id="dlgOk">Weiter</button>
+      <button class="btn quiz" id="dlgQuiz">🧠 Tagesaufgabe</button>
+      <button class="btn quiz" id="quizShow" hidden>💡 Lösung zeigen</button>
       <button class="btn ghost" id="dlgClose">Türchen wieder schließen</button>
     </div>
   </div>
@@ -244,7 +257,7 @@
 <script>
 (function(){
 'use strict';
-var PAYLOAD = {"n":600000,"s":"fCVN9WJsm3vMr2BhC9Dt/w==","i":"ZCLTy6ls5+cAPooM","c":"OY2iuhuVXjs9J8sh+nRygYjuBCCRMDBVkAdYoMk71R1EutpTsTfpmlD0y2ScAW5YAG3dx0z99QKUPM1v5vvqQrvHkxUpBZLYCezCc+s5JEMIEosSEDc2aZoudlv5n9LdmCYI0eN9DSW01puYMR8+y7TSAR7JlRXJjIPUp2gLp+fCPp7xukqhhT+U+43WFcEusegNX7w83lWlLb87UbvFQ/fL6b2dJgJQFo+6SONt9XetfaWvSZBykNOYKXYouzQsxL2v98t+rS5Lha5X9YTVdrIKVY+R39R1TYqNP5bjklja2/Yw92QKMQEjWlpp3VesJU55b8ci0PKOoTqJNGsJ/oDotOr5zyGBJKEsmH0HH6/g+hUmPKwnTqdW7ht23dhqxHjQFNgClHtO8vEe0ib4jcVrE81kHj03thjRBfaL7oImtKZ5ioe2CbiG/uKGs5mdnXWzsTQGAbLqYtkF8GLamVc3lSLRyY+zLsBMzGEcBLVMpMBMuzUfGh5WjO7t6UnlTOl0Ujdy"};
+var PAYLOAD = {"n":600000,"s":"5moj4hBJRBP8Zo7uAks+RQ==","i":"42dMcOZ/rRxswb8U","c":"UGyfc3AcCErgHnnQoccQSxYF3v5Ff5/PBK4/6v1pgQZccUbZpP6iHT735HKKXBDWAxTHpYaA7auORw4aPZxrvwr5edzIj9Gdy2qJwp4CSTEaZv/G2CnHAVshML0pWbFWE3pnWSMEnOg93yprNotcb3G4j8reszcLVOSDs0diIWol9xFCXIZ7FuL4mLfcItYVMX+cP9bLqVOtNCMt/ZOHa/C2T19RHkZ1pXRXEGz5fGgkjXo/1blUM+SU5dn4KfQgnRH+pS4Z14DBlRzkHo+99vgnIkFPbbISoMPtQwEOQo0yvtzJY1vSoYvkr175DzlqGnmUs/brGITZIhuERzobRlbTk6ROKLNQ6jfIoAH2pgJeTWaXy0s0FaSxd6zhKovVLkleN1YgxP087yIOHON4OxluNnBvOVObiKh9FB9dlGpZ/PXV4TzvZYX/7MPxqA5e3WEM62Gz15gJM3lVghJ/9dIh7Voe2UYgr2PgT2k+ptJBAZFpmQtevR7JJiMwCQ0NIto1/PgK"};
 var KEY = 'advent3a', PWKEY = 'advent3a_pw';
 // Feste, gemischte Anordnung wie bei einem echten Adventskalender.
 var ORDER = [7,18,3,22,11,1,15,24,9,5,20,13,2,17,23,8,14,6,19,10,21,4,16,12];
@@ -376,11 +389,55 @@ function reveal(n, celebrate){
   showName(fixed);
   $('dlgInput').hidden = !!fixed;
   $('dlgInput').value = '';
+  quizView(false);
   $('overlay').hidden = false;
   $('dlgOk').focus();
   document.querySelector('#overlay .card').className = 'card a' + (n % 4);
   if(celebrate && fixed){ sfxFanfare(n); effect(n); }
 }
+// Tagesaufgaben für die 3. Klasse: Rechnen, Rätsel und Scherzfragen im Wechsel.
+var QUIZ = {
+  1:['Rechnen','Der Nikolaus packt 6 Säckchen. In jedes kommen 7 Nüsse. Wie viele Nüsse braucht er?','42 Nüsse (6 · 7)'],
+  2:['Rätsel','Ich habe Nadeln, aber ich kann nicht nähen. Im Dezember werde ich geschmückt. Wer bin ich?','Der Tannenbaum 🎄'],
+  3:['Scherzfrage','Was ist weiß und rollt den Berg hinauf?','Eine Lawine mit Heimweh 😄'],
+  4:['Rechnen','Auf dem Blech liegen 48 Plätzchen. 4 Kinder teilen gerecht. Wie viele bekommt jedes Kind?','12 Plätzchen (48 : 4)'],
+  5:['Rätsel','Ich falle vom Himmel und tue mir nicht weh. Ich bin weiß, und jede von uns sieht anders aus. Wer bin ich?','Die Schneeflocke ❄️'],
+  6:['Scherzfrage','Welcher Mann schmilzt in der Sonne?','Der Schneemann ⛄'],
+  7:['Rechnen','Das Eichhörnchen hat 125 Nüsse versteckt. 38 hat es schon wiedergefunden. Wie viele muss es noch suchen?','87 Nüsse (125 − 38)'],
+  8:['Rätsel','Ich leuchte im Advent. Je länger ich brenne, desto kleiner werde ich. Wer bin ich?','Die Kerze 🕯️'],
+  9:['Scherzfrage','Welchen Stern kann man essen?','Den Zimtstern ⭐'],
+  10:['Rechnen','Ein Adventskranz hat 4 Kerzen. Wie viele Kerzen haben 9 Adventskränze zusammen?','36 Kerzen (9 · 4)'],
+  11:['Rätsel','Ich habe ein Geweih und ziehe einen Schlitten durch die Nacht. Wer bin ich?','Das Rentier 🦌'],
+  12:['Scherzfrage','Was ist ein Keks unter einem Baum?','Ein schattiges Plätzchen 🍪'],
+  13:['Rechnen','Zähle weiter: 3, 6, 12, 24, … Welche Zahl kommt als Nächstes?','48 (immer das Doppelte)'],
+  14:['Rätsel','Was wird nasser, je mehr es trocknet?','Das Handtuch'],
+  15:['Scherzfrage','Welcher Schuh passt an keinen Fuß?','Der Handschuh 🧤'],
+  16:['Rechnen','Ein Lebkuchen kostet 2 Euro. Du kaufst 8 Stück und bezahlst mit 20 Euro. Wie viel Geld bekommst du zurück?','4 Euro (8 · 2 = 16, 20 − 16 = 4)'],
+  17:['Rätsel','Ich habe einen Hals, aber keinen Kopf. Was bin ich?','Die Flasche'],
+  18:['Scherzfrage','Was liegt am Strand und spricht undeutlich?','Eine Nuschel 🐚'],
+  19:['Rechnen','Heute ist der 19. Dezember. Wie viele Tage sind es noch bis Heiligabend am 24. Dezember?','5 Tage (24 − 19)'],
+  20:['Rätsel','Im Winter läuft sie oft, obwohl sie keine Beine hat. Was ist das?','Die Nase 🤧'],
+  21:['Scherzfrage','Was ist orange und wandert den Berg hinauf?','Eine Wanderine 🍊'],
+  22:['Rechnen','Im Klassenzimmer hängen 3 Lichterketten. Jede hat 25 Lämpchen. Wie viele Lämpchen leuchten?','75 Lämpchen (3 · 25)'],
+  23:['Rätsel','Ich habe viele Türen, aber kein Haus. Jeden Tag darfst du nur eine öffnen. Wer bin ich?','Der Adventskalender 🎁'],
+  24:['Scherzfrage','Welcher Baum hat keine Wurzeln?','Der Purzelbaum 🤸']
+};
+function quizView(on){
+  $('viewName').hidden = on; $('viewQuiz').hidden = !on;
+  $('dlgQuiz').hidden = on; $('quizShow').hidden = !on; $('quizA').hidden = true; $('dlgClose').hidden = on;
+}
+$('dlgQuiz').addEventListener('click', function(){
+  var q = QUIZ[current]; if(!q) return;
+  $('quizType').textContent = (q[0] === 'Rechnen' ? '🧮 ' : q[0] === 'Rätsel' ? '🤔 ' : '😄 ') + q[0];
+  $('quizQ').textContent = q[1]; $('quizA').textContent = q[2];
+  fxParts = []; // Effekt beenden, damit die Aufgabe gut lesbar ist
+  quizView(true); $('quizShow').focus();
+  if(audio()){ var t = AC.currentTime; bell(freq('G5'), t, 0.3, 0.16); bell(freq('C6'), t + 0.12, 0.4, 0.16); }
+});
+$('quizShow').addEventListener('click', function(){
+  $('quizA').hidden = false; this.hidden = true; $('dlgOk').focus();
+  if(audio()) chord(['C5','E5','G5','C6'], AC.currentTime, 1.2, 0.16);
+});
 function showName(nm){
   $('dlgLead').textContent = nm ? 'Dieses Türchen ist für' : 'Dieses Türchen ist noch frei';
   $('dlgDeco').textContent = nm ? effectOf(current).deco : '🐿️';
